@@ -97,8 +97,8 @@ require('lazy').setup({
     'neovim/nvim-lspconfig',
     dependencies = {
       -- Automatically install LSPs to stdpath for neovim
-      { 'williamboman/mason.nvim', config = true },
-      'williamboman/mason-lspconfig.nvim',
+      { 'mason-org/mason.nvim', opts = {} },
+      'mason-org/mason-lspconfig.nvim',
 
       -- Useful status updates for LSP
       -- NOTE: `opts = {}` is the same as calling `require('fidget').setup({})`
@@ -491,33 +491,22 @@ local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
 
 -- Ensure the servers above are installed
-local mason_lspconfig = require 'mason-lspconfig'
 
-mason_lspconfig.setup {
+require('mason-lspconfig').setup {
   ensure_installed = vim.tbl_keys(servers),
-}
+  handlers = {
+    function(server_name)
+      local opts = {
+        capabilities = capabilities,
+        on_attach = on_attach,
+        settings = servers[server_name],
+        filetypes = (servers[server_name] or {}).filetypes,
+      }
 
-mason_lspconfig.setup_handlers {
-  function(server_name)
-    local opts = {
-      capabilities = capabilities,
-      on_attach = on_attach,
-      settings = servers[server_name],
-      filetypes = (servers[server_name] or {}).filetypes,
-    }
-
-    if server_name == "pyright" then
-    opts.before_init = function(_, config)
-      local python_path = get_python_path(config.root_dir)
-      config.settings = config.settings or {}
-      config.settings.python = config.settings.python or {}
-      config.settings.python.pythonPath = python_path
+      require('lspconfig')[server_name].setup(opts)
     end
-  end
-    require('lspconfig')[server_name].setup(opts)
-  end
+  },
 }
-
 -- [[ Configure nvim-cmp ]]
 -- See `:help cmp`
 local cmp = require 'cmp'
