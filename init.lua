@@ -59,7 +59,22 @@ if not vim.loop.fs_stat(lazypath) then
   }
 end
 vim.opt.rtp:prepend(lazypath)
+-- Utility function for python
+local function get_python_path(workspace)
+  -- If inside a virtual environment, use that
+  if vim.env.VIRTUAL_ENV then
+    return vim.env.VIRTUAL_ENV .. "/bin/python"
+  end
 
+  -- Search for a .venv directory in the workspace
+  local match = vim.fn.glob(workspace .. '/.venv/bin/python')
+  if match ~= '' then
+    return match
+  end
+
+  -- Fallback to system Python
+  return vim.fn.exepath('python3') or 'python'
+end
 -- NOTE: Here is where you install your plugins.
 --  You can configure plugins using the `config` key.
 --
@@ -450,8 +465,10 @@ local servers = {
   tsserver = {
    capabilities = {
       offsetEncoding = { "utf-16" },
-    }, 
-  }
+    },
+  },
+  pyright = {
+  },
 }
 
 for _, method in ipairs({ 'textDocument/diagnostic', 'workspace/diagnostic' }) do
@@ -482,12 +499,22 @@ mason_lspconfig.setup {
 
 mason_lspconfig.setup_handlers {
   function(server_name)
-    require('lspconfig')[server_name].setup {
+    local opts = {
       capabilities = capabilities,
       on_attach = on_attach,
       settings = servers[server_name],
       filetypes = (servers[server_name] or {}).filetypes,
     }
+
+    if server_name == "pyright" then
+    opts.before_init = function(_, config)
+      local python_path = get_python_path(config.root_dir)
+      config.settings = config.settings or {}
+      config.settings.python = config.settings.python or {}
+      config.settings.python.pythonPath = python_path
+    end
+  end
+    require('lspconfig')[server_name].setup(opts)
   end
 }
 
